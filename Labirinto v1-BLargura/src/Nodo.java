@@ -7,7 +7,7 @@ public class Nodo implements Comparable<Nodo> {
     int h; // Custo heurístico estimado até o destino
     int f; // f = g + h
     
-    public Nodo(int x, int y, Nodo pai) {
+    public Nodo(int x, int y, Nodo pai, int g, int h) {
         this.X = x;
         this.Y = y;
         this.pai = pai;

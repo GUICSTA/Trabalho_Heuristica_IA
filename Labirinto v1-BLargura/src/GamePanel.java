@@ -11,6 +11,7 @@ import java.util.LinkedList;
 import java.util.Random;
 import java.awt.image.*;
 import javax.imageio.ImageIO;
+import java.util.PriorityQueue;
 
 
 public class GamePanel extends Canvas implements Runnable
@@ -180,12 +181,12 @@ public GamePanel()
 					
 					int hx = (int)(meuHeroi.X/16);
 					int hy = (int)(meuHeroi.Y/16);
-					
-					listadenodos.clear();
-					listadenodosvisitados.clear();
-					
-					caminho = buscaEmLargura(hx,hy,mx,my);
-					
+
+                    listaAberta.clear();
+                    listadenodosvisitados.clear();
+
+                    caminho = buscaAStar(hx,hy,mx,my);
+
 					meuHeroi.caminho = caminho;
 					meuHeroi.idexcaminho = 0;
 					//mapa.mapa[my][mx]
@@ -284,7 +285,7 @@ public GamePanel()
 	mapa.loadmapfromimage("/imagemlabirinto1000.png");
 	
 } // end of GamePanel()
-
+/*
 LinkedList<Nodo> listadenodos = new LinkedList<Nodo>();
 HashMap<Integer,Nodo> listadenodosvisitados = new HashMap<Integer,Nodo>();
 public int[] buscaEmLargura(int ix,int iy,int ox,int oy) {
@@ -344,7 +345,90 @@ public int[] buscaEmLargura(int ix,int iy,int ox,int oy) {
 	
 	return path;
 }
+*/
+    PriorityQueue<Nodo> listaAberta = new PriorityQueue<Nodo>();
+    HashMap<Integer,Nodo> listadenodosvisitados = new HashMap<Integer,Nodo>();
 
+    // ---> AQUI ESTÁ A HEURÍSTICA DE MANHATTAN <---
+    public int heuristicaManhattan(int xAtual, int yAtual, int xDestino, int yDestino) {
+        return (Math.abs(xAtual - xDestino) + Math.abs(yAtual - yDestino)) * 10;
+    }
+
+    public int[] buscaAStar(int ix, int iy, int ox, int oy) {
+        listaAberta.clear();
+        listadenodosvisitados.clear();
+
+        // Calcula a distância inicial com a heurística
+        int hInicial = heuristicaManhattan(ix, iy, ox, oy);
+        listaAberta.add(new Nodo(ix, iy, null, 0, hInicial));
+
+        boolean achouObjetivo = false;
+        int nodosabertos = 0;
+        Nodo nodoFinal = null;
+
+        while (!listaAberta.isEmpty()) {
+            Nodo atual = listaAberta.poll(); // Pega sempre o melhor caminho (Menor F)
+
+            if (atual.X == ox && atual.Y == oy) {
+                achouObjetivo = true;
+                nodoFinal = atual;
+                break;
+            }
+
+            synchronized(listadenodosvisitados) {
+                listadenodosvisitados.put(atual.X + (atual.Y * mapa.Largura), atual);
+            }
+
+            // Custo de movimento é 10 (horizontal/vertical)
+            int novoG = atual.g + 10;
+
+            addVizinhoAStar(atual, atual.X + 1, atual.Y, ox, oy, novoG);
+            addVizinhoAStar(atual, atual.X, atual.Y + 1, ox, oy, novoG);
+            addVizinhoAStar(atual, atual.X - 1, atual.Y, ox, oy, novoG);
+            addVizinhoAStar(atual, atual.X, atual.Y - 1, ox, oy, novoG);
+
+            nodosabertos++;
+        }
+
+        if (!achouObjetivo) {
+            System.out.println("Caminho não encontrado!");
+            return null;
+        }
+
+        // Constrói a rota final
+        LinkedList<Nodo> caminho = new LinkedList<Nodo>();
+        Nodo f = nodoFinal;
+        caminho.add(f);
+        while (f.pai != null) {
+            f = f.pai;
+            caminho.add(f);
+        }
+
+        int path[] = new int[caminho.size() * 2];
+        int index = caminho.size() * 2;
+        for (Iterator iterator = caminho.iterator(); iterator.hasNext();) {
+            Nodo nodo = (Nodo) iterator.next();
+            path[index - 1] = nodo.Y;
+            path[index - 2] = nodo.X;
+            index -= 2;
+        }
+
+        System.out.println("Nodos Abertos pelo A*: " + nodosabertos);
+        return path;
+    }
+
+    public void addVizinhoAStar(Nodo pai, int x, int y, int ox, int oy, int novoG) {
+        if (x >= mapa.Altura || y >= mapa.Largura || x < 0 || y < 0) return;
+        if (mapa.mapa[y][x] == 1) return; // Bateu na parede
+        if (listadenodosvisitados.containsKey(x + (y * mapa.Largura))) return;
+
+        // Usa a heurística para calcular o H deste vizinho
+        int h = heuristicaManhattan(x, y, ox, oy);
+        Nodo vizinho = new Nodo(x, y, pai, novoG, h);
+
+        listaAberta.add(vizinho);
+    }
+/*
 public boolean addnodovizinhos(Nodo n,int x,int y,int ox,int oy){
 	if(x>=mapa.Altura) {
 		return false;
@@ -382,6 +466,7 @@ public boolean addnodovizinhos(Nodo n,int x,int y,int ox,int oy){
 	}
 	return false;
 }
+ */
 
 public void startGame()
 // initialise and start the thread
